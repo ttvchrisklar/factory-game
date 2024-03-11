@@ -3,3 +3,6 @@ game name: Factory somthing..
 
 
 game loop: mine resorses, smelt the ore, sell or craft the smelted item, bye new ore patches, expand.
+
+ideas:
+runing costs: every machin costs mony to run, its taken every 10 seconds or so.

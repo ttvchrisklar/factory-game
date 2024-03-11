@@ -6,6 +6,7 @@ pygame.init()
 rect_size = 50
 row_spacing = 0
 nextavalebelpress = 0
+orepicelist = []
 beltlist = []
 drilllist = []
 orelist = []
@@ -26,6 +27,7 @@ visible_width = -0
 visible_height = -0
 go = False
 bildingselted = 1
+nextactiontime = 1000
 
 
 class gridclass:
@@ -44,11 +46,9 @@ class player:
 
 
 class ore:
-    def __init__(self, location, oretype, amaount, nextto):
+    def __init__(self, location, oretype):
         self.location = location
         self.oretype = oretype
-        self.amaount = amaount
-        self.nextto = nextto
         self.dir = 0
 
 class drill:
@@ -57,17 +57,59 @@ class drill:
         self.oretype = oretype
         self.dir = dir
         self.miningspeed = 1
+        return
+    
+    def generateore(self,pos):
+        if self.dir == 0:
+            if rectangles[pos + grid_width].ocuideby == "BELT": 
+                createorepice(pos + grid_width, self.oretype)           
+                return
+        if self.dir == 90:
+            if rectangles[pos + 1].ocuideby == "BELT": 
+                createorepice(pos + 1, self.oretype)           
+                return
+        if self.dir == 180:
+            if rectangles[pos - grid_width].ocuideby == "BELT": 
+                createorepice(pos - grid_width, self.oretype)           
+                return
+        if self.dir == 270:
+            if rectangles[pos - 1].ocuideby == "BELT": 
+                createorepice(pos - 1, self.oretype)           
+                return
 class belt:
     def __init__(self, location, dir):
         self.location = location
         self.carying = []
         self.dir = dir
+    
+    def pushitem(self,pos):
+        for bs in beltlist:
+            if bs.location == bs.direction(pos):
+                print("print true")
+    def direction(self,pos):
+        if self.dir == 0:
+            if rectangles[pos + grid_width].ocuideby == "BELT":   
+                return pos + grid_width
+        if self.dir == 90:
+            if rectangles[pos + 1].ocuideby == "BELT":
+                return pos + 1
+        if self.dir == 180:
+            if rectangles[pos - grid_width].ocuideby == "BELT":
+                return pos - grid_width
+        if self.dir == 270:
+            if rectangles[pos - 1].ocuideby == "BELT":
+                return pos - 1
 
+class orepice:
+    def __init__(self, location, type, dir):
+        self.location = location
+        self.type = type
+        self.dir = dir
 
 
 # Set up display
-screen = pygame.display.set_mode((screenwidth, screenheight))
-# screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+# screen = pygame.display.set_mode((screenwidth, screenheight))
+screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
 pygame.display.set_caption("Factory")
 screensize = pygame.display.get_window_size()
 print(screensize)
@@ -85,7 +127,7 @@ def cubeprinter():
             i = len(rectangles)
             newrec = gridclass(x, y, wh, io, o, i)
             rectangles.append(newrec)
-    bordpaternmaker()
+
 
 
 def playerclasscrator():
@@ -96,10 +138,10 @@ def playerclasscrator():
     bordocupationupdater("PLAYER", posision)
 
 
-def createoreblock(pos):
-    newore = ore(pos, "Copper", random.randint(100, 1000), [])
+def createoreblock(pos,type):
+    newore = ore(pos, type)
     orelist.append(newore)
-    bordocupationupdater("COPPER", pos)
+    bordocupationupdater(type.upper(), pos)
 
 def createdrill(pos, oretype):
     newdrill = drill(pos,oretype,0)
@@ -110,6 +152,18 @@ def createbelt(pos):
     newbelt = belt(pos,0)
     beltlist.append(newbelt)
     bordocupationupdater("BELT", pos)
+
+def createorepice(pos,type):
+    for belt in beltlist:
+        if len(belt.carying) == 1:
+            break
+        if belt.location == pos:
+            neworepice = orepice(pos,type,180)
+            neworepice.dir = belt.dir
+            pice = (type,len(orepicelist)+1)
+            belt.carying.append(pice)
+            orepicelist.append(neworepice)
+            break
 
 
 def getPressed(keys, key, timeout):
@@ -128,7 +182,7 @@ def getPressed(keys, key, timeout):
 
 
 def keydetection():
-    global visible_width, visible_height
+    global visible_width, visible_height, grid_width
     speed, ptomove, keys = playerlist[0].speed, playerlist[0].pbox, pygame.key.get_pressed()
     bildingselector(keys)
     if keys[pygame.K_ESCAPE]:
@@ -182,9 +236,6 @@ def keydetection():
             ptomove = playerlist[0].pbox
             bordocupationupdater("PLAYER", ptomove)
 
-
-
-
 def squerdocupationchecer():
     global unocupidesquers
     unocupidesquers = []
@@ -192,22 +243,10 @@ def squerdocupationchecer():
         if rectangles[i].ocuideby == "GRASS":
             unocupidesquers.append(i)
 
-
 def bordocupationupdater(type, location):
     rectangles[int(location)].isocupied = True
     rectangles[int(location)].ocuideby = type
     squerdocupationchecer()
-
-
-def bordpaternmaker():
-    patern = 0
-    for i in range(len(rectangles)):
-        if patern == 0:
-            rectangles[i].color = (25, 100, 0)
-            patern = 1
-        else:
-            rectangles[i].color = (50, 100, 0)
-            patern = 0
 
 def painter(image_name,type,scale):
     image_path = "C:/Users/chris/Desktop/all_files/coding/python/factorygame/images/"
@@ -217,18 +256,26 @@ def painter(image_name,type,scale):
             image = pygame.transform.scale(image, (im.rect.width, im.rect.height))
             screen.blit(image, (im.rect.x + visible_width, im.rect.y + visible_height))
         return
-    if type == playerlist:
-        for im in type:
-            image = pygame.transform.scale(image, (rectangles[im.pbox].rect.width, rectangles[im.pbox].rect.height))
-            screen.blit(image, (rectangles[im.pbox].rect.x + visible_width, rectangles[im.pbox].rect.y + visible_height))
-        return
-    elif type != playerlist:
+    elif type != playerlist and type != orepicelist:
         for im in type:
             if im.location is not None:
                 im_rect = rectangles[im.location].rect
                 scaled_image = pygame.transform.scale(image, (im_rect.width // scale, im_rect.height // scale))
                 rotated_image = pygame.transform.rotate(scaled_image,im.dir)
                 screen.blit(rotated_image, (im_rect.x + visible_width, im_rect.y + visible_height))
+        return
+    if type == playerlist:
+        for im in type:
+            image = pygame.transform.scale(image, (rectangles[im.pbox].rect.width, rectangles[im.pbox].rect.height))
+            screen.blit(image, (rectangles[im.pbox].rect.x + visible_width, rectangles[im.pbox].rect.y + visible_height))
+        return
+    if type == orepicelist:
+        for im in type:
+            if im.location is not None:
+                im_rect = rectangles[im.location].rect
+                scaled_image = pygame.transform.scale(image, (im_rect.width // scale, im_rect.height // scale))
+                rotated_image = pygame.transform.rotate(scaled_image,im.dir)
+                screen.blit(rotated_image, (im_rect.x + visible_width + (im_rect.width // scale)/3, im_rect.y + visible_height + (im_rect.height // scale)/3))
         return
 
 def bordpainter():
@@ -237,7 +284,7 @@ def bordpainter():
     painter("copper.png",orelist,1)
     painter("drill.png",drilllist,1)
     painter("belt.png",beltlist,1)
-
+    painter("copper_ore.png",orepicelist,1.5)
 
 def randomsquer():
     if not unocupidesquers:
@@ -245,7 +292,6 @@ def randomsquer():
         return -1  # or any other value indicating error
     else:
         return random.choice(unocupidesquers)
-
 
 def find_center_square():
     screen_center_x = screensize[0] // 2
@@ -269,7 +315,6 @@ def setcamra():
     visible_width = 0
     visible_height = 0
 
-
 def gamestart():
     global playerlist, rectangles, portallist, walllist, go
     go = False
@@ -280,7 +325,7 @@ def gamestart():
     cubeprinter()
     squerdocupationchecer()
     playerclasscrator()
-    createoreblock(731)
+    createoreblock(731,"COPPER_ORE_BLOCK")
     setcamra()
     squerdocupationchecer()
 
@@ -288,20 +333,20 @@ def rotatebuilding(square, type):
     for ro in type:
         if ro.location == square.id:
             ro.dir += 90
+            if ro.dir == 360:
+                ro.dir = 0
+                return
             break
-
-
-
 def mouseclickditector(ev):
     # Adjust mouse position for visible_width and visible_height
     mouse_adjusted = (ev.pos[0] - visible_width, ev.pos[1] - visible_height)
-    bildeblepos, rotateteble = ["COPPER","GRASS"], ["DRILL","BELT"]
+    bildeblepos, rotateteble = ["COPPER_ORE_BLOCK","GRASS"], ["DRILL","BELT"]
     if ev.button == 1:
         for square in rectangles:
             if square.rect.collidepoint(mouse_adjusted) and square.ocuideby in bildeblepos:
                 square.has_bilding = True
                 if bildingselted == 1 and square.ocuideby != "GRASS":
-                    createdrill(square.id,"COPPER")
+                    createdrill(square.id,"COPPER_ORE_BLOCK")
                     break
                 if bildingselted == 2 and square.ocuideby == "GRASS":
                     createbelt(square.id)
@@ -327,7 +372,7 @@ def mouseclickditector(ev):
                     i=0
                     for i in range(len(drilllist)):
                         if drilllist[i-1].location == square.id:
-                            bordocupationupdater("COPPER", square.id)
+                            bordocupationupdater("COPPER_ORE_BLOCK", square.id)
                             drilllist.pop(i-1)
                 if square.ocuideby == "BELT":
                     i=0
@@ -335,11 +380,23 @@ def mouseclickditector(ev):
                         if beltlist[i-1].location == square.id:
                             bordocupationupdater("GRASS", square.id)
                             beltlist.pop(i-1)
+
+def bildingaction():
+    global nextactiontime
+    current_time = pygame.time.get_ticks()  # Get the current time
+    if current_time >= nextactiontime:
+        nextactiontime += 1000  # Increment next action time by 1000 milliseconds
+        for drill in drilllist:
+            drill.generateore(drill.location)
+        for belt in beltlist:
+            belt.pushitem(belt.location)
+
 # Main game loop
 def gameloop():
     gamestart()
     while True:
-        global ev, mouse
+        global ev, mouse, time
+        time = pygame.time.get_ticks()
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 pygame.quit()
@@ -357,6 +414,7 @@ def gameloop():
                     gamestart()
             keydetection()
         else:
+            bildingaction()
             keydetection()
             bordpainter()
         # Draw rectangles from the list
